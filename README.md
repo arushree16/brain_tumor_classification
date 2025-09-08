@@ -66,8 +66,6 @@ project/
   train_sam.py: "Training script"
   evaluate.py: "Evaluation script"
   main.py: "Unified entrypoint"
-  requirements.txt: ""
-  README.md: ""
 ```
 
 ---
