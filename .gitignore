@@ -7,6 +7,8 @@ Here’s a `.gitignore` that:
 
 ```gitignore
 # Python
+Brain_Tumor.ipynb
+Brain_Tumor.py
 __pycache__/
 *.pyc
 *.pyo
@@ -20,6 +22,7 @@ venv/
 env/
 
 # Outputs
+result_1_epoch/
 outputs/
 *.h5
 *.keras
@@ -28,9 +31,11 @@ outputs/
 .ipynb_checkpoints/
 
 # Datasets
+brain_tumor_dataset/
 dataset/
 *.zip
 
 # Ignore PDFs
+paper/
 *.pdf
 
