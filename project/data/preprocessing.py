@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import albumentations as A
+from tensorflow.keras.applications.efficientnet import preprocess_input
 
 def ensure_rgb(img):
     if img is None:
-        # Return a black placeholder image if read fails
         return np.zeros((224, 224, 3), dtype=np.uint8)
     if img.ndim == 2:  # grayscale
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
@@ -13,27 +13,21 @@ def ensure_rgb(img):
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     return img
 
-# Albumentations augmentation wrapper
 def albumentations_wrapper(aug, img_size=224):
     def _apply(img):
-        # img is already a NumPy array from tf.numpy_function
-        if img is None or img.size == 0:
-            img_np = np.zeros((img_size, img_size, 3), dtype=np.uint8)
-        else:
-            img_np = ensure_rgb(img)
-            img_np = img_np.astype(np.uint8)
-
+        img = ensure_rgb(img)
+        img = cv2.resize(img, (img_size, img_size))
         if aug is not None:
             try:
-                img_np = aug(image=img_np)['image']
+                img = aug(image=img)['image']
             except Exception as e:
                 print(f"[WARN] Albumentations failed: {e}")
-                img_np = cv2.resize(img_np, (img_size, img_size))
-
-        return img_np.astype(np.float32)
+        # EfficientNet preprocessing
+        img = preprocess_input(img)
+        return img.astype(np.float32)
     return _apply
 
-def build_dataset(file_list, label_list, aug, batch_size=16, shuffle=True, img_size=224):
+def build_dataset(file_list, label_list, aug=None, batch_size=16, shuffle=True, img_size=224):
     file_ds = tf.data.Dataset.from_tensor_slices(file_list)
     label_ds = tf.data.Dataset.from_tensor_slices(label_list)
     ds = tf.data.Dataset.zip((file_ds, label_ds))
@@ -42,11 +36,9 @@ def build_dataset(file_list, label_list, aug, batch_size=16, shuffle=True, img_s
         ds = ds.shuffle(buffer_size=1024, reshuffle_each_iteration=True)
 
     def _map(path, label):
-        # Read image
         img = tf.io.read_file(path)
         img = tf.io.decode_image(img, channels=3, expand_animations=False)
 
-        # Apply albumentations with tf.numpy_function
         if aug is not None:
             img = tf.numpy_function(
                 func=albumentations_wrapper(aug, img_size),
@@ -55,6 +47,7 @@ def build_dataset(file_list, label_list, aug, batch_size=16, shuffle=True, img_s
             )
         else:
             img = tf.image.resize(img, [img_size, img_size])
+            img = preprocess_input(img)
             img = tf.cast(img, tf.float32)
 
         img.set_shape((img_size, img_size, 3))
