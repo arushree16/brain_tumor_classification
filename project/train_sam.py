@@ -6,6 +6,7 @@ from model.hybrid_classifier_model import build_hybrid_model, build_hybrid_atten
 from data.dataloader import list_images_and_labels
 from data.augmentations import get_train_transforms, get_val_transforms
 from data.preprocessing import build_dataset
+from glob import glob
 
 
 def get_model(name, num_classes, args):
@@ -40,8 +41,22 @@ def train(args):
     # -----------------------------
     # Dataset
     # -----------------------------
-    train_files, train_labels, classes = list_images_and_labels(os.path.join(args.data_root, 'train'))
-    val_files, val_labels, _ = list_images_and_labels(os.path.join(args.data_root, 'val'))
+    train_root = os.path.join(args.data_root, 'train')
+    val_root = os.path.join(args.data_root, 'val')
+
+    train_files, train_labels, classes = list_images_and_labels(train_root)
+
+    # Build val files and labels using the SAME class mapping as train
+    class_to_idx = {c: i for i, c in enumerate(classes)}
+    val_files, val_labels = [], []
+    for c in classes:
+        c_dir = os.path.join(val_root, c)
+        if not os.path.isdir(c_dir):
+            # skip missing class folders in val
+            continue
+        fpaths = [fp for fp in glob(os.path.join(c_dir, '*')) if fp.lower().endswith((".jpg", ".jpeg", ".png"))]
+        val_files.extend(fpaths)
+        val_labels.extend([class_to_idx[c]] * len(fpaths))
 
     train_aug = get_train_transforms(args.img_size)
     val_aug = get_val_transforms(args.img_size)

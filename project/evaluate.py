@@ -7,6 +7,7 @@ from data.preprocessing import build_dataset
 from model.hybrid_classifier_model import build_hybrid_model, build_hybrid_attention_cnn
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report, roc_auc_score
 import csv
+from glob import glob
 
 
 def get_model(name, num_classes, args):
@@ -34,8 +35,22 @@ def get_model(name, num_classes, args):
 
 
 def evaluate(args):
-    _, _, classes = list_images_and_labels(os.path.join(args.data_root, 'train'))
-    val_files, val_labels, _ = list_images_and_labels(os.path.join(args.data_root, 'val'))
+    train_root = os.path.join(args.data_root, 'train')
+    val_root = os.path.join(args.data_root, 'val')
+
+    # Get class order from train split
+    _, _, classes = list_images_and_labels(train_root)
+    class_to_idx = {c: i for i, c in enumerate(classes)}
+
+    # Build val set using the same class mapping
+    val_files, val_labels = [], []
+    for c in classes:
+        c_dir = os.path.join(val_root, c)
+        if not os.path.isdir(c_dir):
+            continue
+        fpaths = [fp for fp in glob(os.path.join(c_dir, '*')) if fp.lower().endswith((".jpg", ".jpeg", ".png"))]
+        val_files.extend(fpaths)
+        val_labels.extend([class_to_idx[c]] * len(fpaths))
 
     val_aug = get_val_transforms(args.img_size)
     val_ds = build_dataset(
