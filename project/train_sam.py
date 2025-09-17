@@ -158,12 +158,23 @@ def train(args):
     # -----------------------------
     if args.unfreeze_backbone and args.model == 'efficientnet_hybrid':
         print("\nUnfreezing backbone for fine-tuning...")
+        # Load best weights before starting fine-tuning to resume from the best checkpoint
+        if os.path.exists(ckpt_path):
+            try:
+                model.load_weights(ckpt_path)
+                print(" Loaded best weights from", ckpt_path)
+            except Exception as e:
+                print("[WARN] Failed to load best weights before fine-tune:", e)
         for layer in model.layers:
             if 'efficientnetb0' in layer.name:
                 layer.trainable = True
 
-        # Reduce LR for fine-tuning
-        base_opt.learning_rate = args.lr_finetune
+        # Rebuild optimizer for fine-tuning with a constant LR (cannot set on a schedule)
+        if args.weight_decay and args.weight_decay > 0.0:
+            base_opt = tf.keras.optimizers.AdamW(learning_rate=args.lr_finetune, weight_decay=args.weight_decay)
+        else:
+            base_opt = tf.keras.optimizers.Adam(learning_rate=args.lr_finetune)
+        sam = SAM(base_opt, rho=args.rho, adaptive=args.adaptive_sam)
         for epoch in range(1, args.finetune_epochs + 1):
             print(f"\nFine-tune Epoch {epoch}/{args.finetune_epochs}")
             losses = []
